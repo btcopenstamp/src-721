@@ -12,7 +12,7 @@ SRC-721 transactions must conform to these **required** fields or the transactio
 ```
 {
         "p": "src-721",
-        "v": "1",
+        "v": "2",
         "op": "deploy",
         "name": "Collection Name",       // The display name of the collection
         "symbol": "SYM",                 // the symbol for the collection
@@ -66,8 +66,6 @@ SRC-721 transactions must conform to these **required** fields or the transactio
     "op": "mint",
     "symbol": "SYM",      // symbol [optional]
     "c":"A123456789",     // a pointer to the deploy collection json cp asset
-    "num": "0"            // The ordinal number of stamps with the same traits,  [optional, default=0]
-    "amt": "1",           // amount to mint, value range is 1 to NUM [optional, default=1]
     "sig": "1234...abcd", // used for a permissioned mint signed(sha256(num+JSON.stingify(ts)+userAddress)) [optional]
 
     "ts":[0,1,...,y]    // an array with x length wherein each item
@@ -85,7 +83,7 @@ SRC-721 transactions must conform to these **required** fields or the transactio
     "price":"10000",             // the price for the mint in satoshis [optional]
     "recipient": "1ABC...321",   // mint fee recipient address [optional]
     "wl": "1",                   // public(0) or whitelist(1) mint phase [optional]
-    "mode": "1",                 //  traits allocation mode, random allocation(0) or authorized allocation(1) [optional]
+    "mode": "1",                 //  traits allocation mode, random allocation(0), authorized allocation(1),user allocation(2) [optional]
 }
 ```
 
@@ -128,9 +126,8 @@ SRC-721 transactions are valid counterparty assets and can be use as such.
 
 2. Generate Reveal Signature: The owner signs the hash(traits data objects) to obtain a signature. If the first input of the transaction is the owner, no signature is required.
 
-3. Generate Mint Signature: The operator signs the sha256(num+JSON.stingify(ts)+userAddress) to obtain a signature. sha256 should be a byte array not hex, to reduce footprint
+3. Generate Mint Signature: The operator signs the sha256(JSON.stingify(ts)+userAddress) to obtain a signature. sha256 should be a byte array not hex, to reduce footprint.  For random mints: sign sha256(userAddress).  If two or more wl mints for an address exist, sign the hashes of the address accordingly sha256(sha256(userAddress)). 
 
-Note: ****May want to truncate the mint signature to a fraction of the total size to reduce on-chain footprint
 
 ### Sale Mode
 
@@ -144,6 +141,8 @@ There are two main mint modes for traits allocation,
 1. Authorized allocation: A mint transaction, which is either initiated by the operator or containing the operator's signature, incorporates the relevant traits. ts must be present, 3 or more UTXOs
 
 2. Random allocation: the reveal function outlines the traits distribution. ts is ignoted, 2 or more UTXOs
+
+3. User allocation: A mint transaction initiated by the user that incorporates the relevant traits. ts must be present, 3 or more UTXOs
 
 ### Additional Notes
 
@@ -163,11 +162,9 @@ Based on the Sale Mode and Traits Allocation Mode, 4 minting modes can be combin
     "p": "src-721",
     "op": "mint",
     "c": "A123456789",   
-    "num": "0"            // [optional, default=0]
-    "amt": "1",           // [optional, default=1]
     "ts": [0,1,...,y],
     "d":["d0","d1".."dy"],// [optional, used to attach data to this nft]
-    "sig": "1234...abcd"  // signed(sha256(num+JSON.stingify(ts)+userAddress)). The signature field is not required if the sender is the operator. 
+    "sig": "1234...abcd"  // signed(sha256(JSON.stingify(ts)+userAddress)). The signature field is not required if the sender is the operator. 
 } 
 ```   
 MultiSig UTXO Amount: at least 3
@@ -178,8 +175,6 @@ MultiSig UTXO Amount: at least 3
     "p": "src-721",
     "op": "mint",
     "c": "A123456789",   
-    "num": "0"          // [optional, default=0]
-    "amt": "1",         // [optional, default=1]
     "d":["d0","d1".."dy"],// [optional, used to attach data to this nft]
     "sig": "1234...abcd" // signed(sha256(userAddress)). The signature field is not required if the sender is the operator
 }  
@@ -193,11 +188,9 @@ MultiSig UTXO Amount: at least 2
     "p": "src-721",
     "op": "mint",
     "c": "A123456789",   
-    "num": "0"            // [optional, default=0]
-    "amt": "1",           // [optional, default=1]
     "ts": [0,1,...,y],
     "d":["d0","d1".."dy"],// [optional, used to attach data to this nft]
-    "sig": "1234...abcd"  // signed(sha256(num+JSON.stingify(ts)+userAddress)). The signature field is not required if the sender is the operator
+    "sig": "1234...abcd"  // signed(sha256(JSON.stingify(ts)+userAddress)). The signature field is not required if the sender is the operator
 } 
 ```   
 MultiSig UTXO Amount: at least 3
@@ -224,18 +217,16 @@ MultiSig UTXO Amount: at least 2
 
 3. If the price is not 0, the mint transaction should include an output whose amount is equal to or greater than the price to the recipient.
 
-4. For images with the same traits, the number can't exceed NUM. Count(sha256(JSON.stringify(ts))) <= NUM, except in the case of Random Traits Allocation mode.
+4. If mode=1 or wl=1(Whitelist Sale or Authorized Traits Allocation), the signature (sig) in the mint json must be unique, or signature can be omitted with a dust input from the owner/operator
 
-5. If mode=1 or wl=1(Whitelist Sale or Authorized Traits Allocation), the signature (sig) in the mint json must be unique.
+5. If mode=1(Authorized Traits Allocation), then the sender needs to either be the operator or the mint json has a correctly signature signed(sha256(JSON.stringify(ts)+userAddress)).
 
-6. If mode=1(Authorized Traits Allocation), then the sender needs to either be the operator or the mint json has a correctly signature signed(sha256(num+JSON.stringify(ts)+userAddress)).
-
-7. If mode=0 and wl=1(Whitelist Sale with Random Traits Allocation), then the sender needs to either be the operator or the mint json has a correctly signature signed(sha256(userAddress)).
+6. If mode=0 and wl=1(Whitelist Sale with Random Traits Allocation), then the sender needs to either be the operator or the mint json has a correctly signature signed(sha256(userAddress)).
 
 
 ## SRC-721 Token Requirements
 
-1. Tokens must be 1-5 characters in length.
+1. Tokens must be 1-10 characters in length.
 
 2. Allowed characters:
    a. Any word character (alphanumeric characters and underscores)

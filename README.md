@@ -127,7 +127,7 @@ SRC-721 transactions are valid counterparty assets and can be use as such.
 
 2. Generate Reveal Signature: The owner signs the hash(traits data objects) to obtain a signature. If the first input of the transaction is the owner, no signature is required.
 
-3. Generate Mint Signature: The operator signs the sha256(JSON.stingify(ts)+userAddress) to obtain a signature. sha256 should be a byte array not hex, to reduce footprint.  For random mints: sign sha256(userAddress).  If two or more wl mints for an address exist, sign the hashes of the address accordingly sha256(sha256(userAddress)). 
+3. Generate Mint Signature: The operator signs the sha256(JSON.stingify(ts)+userAddress) to obtain a signature. sha256 should be a hex string.  For random mints: sign sha256(userAddress).  If two or more wl mints for an address exist, sign the hashes of the address accordingly sha256(sha256(userAddress)). 
 
 
 ### Sale Mode
